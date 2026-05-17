@@ -1,0 +1,29 @@
+# SileroVAD shipped as a Rust cdylib (Path 4 — dual-emit via
+# `#[node(loadable_export)]` on the in-tree `SileroVADNode` in
+# `remotemedia-core`).
+#
+# A consumer references this from a manifest as either:
+#
+#   "plugins": ["silero-vad@v0.1.0"]
+#       (canonical-org shorthand → github.com/RemoteMedia-SDK/silero-vad)
+#
+#   "plugins": ["./plugins/libsilero_vad_loadable_plugin.so"]
+#       (local path — for development before the release flow exists)
+#
+# The resolver fetches this file from raw.githubusercontent.com first
+# (cheap, validates the spec + lists node types), then falls through to
+# `release-manifest.json` for the actual platform-specific binary.
+#
+# Caveat: the FFI ABI is single-output, so the loadable path emits ONLY
+# the JSON VAD event (the in-tree node also emits an audio passthrough
+# copy; pipelines that need it must use the in-tree factory).
+
+[plugin]
+name        = "silero-vad"
+version     = "0.1.0"
+language    = "rust"
+description = "Voice activity detection (Silero VAD ONNX) — single-file Rust cdylib plugin"
+
+[rust]
+node_types    = ["SileroVADNode"]
+asset_pattern = "lib{name}-{arch}-{os}.{ext}"
