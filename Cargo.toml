@@ -24,11 +24,11 @@ crate-type = ["cdylib", "rlib"]
 # in-process audio node; none of those features are reachable
 # through `SileroVADNode`, and dropping them shrinks the cdylib by
 # pulling in only the minimum codepath.
-remotemedia-core = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", rev = "11fbc7234d690aa8341baadc19ef6b1c2a0bbbb0", default-features = false, features = ["silero-vad", "loadable-export"] }
+remotemedia-core = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", rev = "1e2083be5330dc8ceca2b86d659100ebff3e3b4c", default-features = false, features = ["silero-vad", "loadable-export"] }
 
 # `plugin_export!()` walks the inventory and emits the abi_stable
 # root module the host loads via `dlopen`.
-remotemedia-plugin-sdk = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", rev = "11fbc7234d690aa8341baadc19ef6b1c2a0bbbb0" }
+remotemedia-plugin-sdk = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", rev = "1e2083be5330dc8ceca2b86d659100ebff3e3b4c" }
 
 # `abi_stable` must be a direct dep so the attribute macros expanded
 # by `plugin_export!()` (`#[sabi_extern_fn]`, `#[export_root_module]`)
