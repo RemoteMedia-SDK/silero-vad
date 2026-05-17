@@ -1,10 +1,11 @@
-# SileroVAD shipped as a Rust cdylib (Path 4 — dual-emit via
-# `#[node(loadable_export)]` on the in-tree `SileroVADNode` in
-# `remotemedia-core`).
+# SileroVAD shipped as a Rust cdylib (Path 3 — hand-rolled,
+# standalone). The nodes are defined in this plugin's own src/lib.rs
+# and depend ONLY on `remotemedia-plugin-sdk` for the skinny trait
+# and type surfaces — `remotemedia-core` is NOT linked.
 #
 # A consumer references this from a manifest as either:
 #
-#   "plugins": ["silero-vad@v0.1.0"]
+#   "plugins": ["silero-vad@v0.3.0"]
 #       (canonical-org shorthand → github.com/RemoteMedia-SDK/silero-vad)
 #
 #   "plugins": ["./plugins/libsilero_vad_loadable_plugin.so"]
@@ -14,16 +15,16 @@
 # (cheap, validates the spec + lists node types), then falls through to
 # `release-manifest.json` for the actual platform-specific binary.
 #
-# Caveat: the FFI ABI is single-output, so the loadable path emits ONLY
-# the JSON VAD event (the in-tree node also emits an audio passthrough
-# copy; pipelines that need it must use the in-tree factory).
+# Both nodes use the multi-output FFI path so the JSON event + audio
+# passthrough (+ optional CancelSpeculation control message) all
+# cross the dlopen boundary intact.
 
 [plugin]
 name        = "silero-vad"
-version     = "0.2.4"
+version     = "0.3.0"
 language    = "rust"
-description = "Voice activity detection (Silero VAD ONNX) — single-file Rust cdylib plugin"
+description = "Voice activity detection (Silero VAD ONNX) + SpeculativeVADCoordinator — standalone Rust cdylib plugin"
 
 [rust]
-node_types    = ["SileroVADNode"]
+node_types    = ["SileroVADNode", "SpeculativeVADCoordinator"]
 asset_pattern = "lib{name}-{arch}-{os}.{ext}"

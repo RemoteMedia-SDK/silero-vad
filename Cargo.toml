@@ -1,36 +1,51 @@
 [package]
 name = "silero-vad-loadable-plugin"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 publish = false
 
-# Standalone workspace so this crate doesn't get pulled into the main
-# workspace build (and so the cdylib + heavy ONNX deps don't pollute
-# the main `target/` dir for unrelated work).
+# Standalone workspace — fully decoupled from any parent workspace so
+# the plugin's `ort` pin and other heavy deps never unify against a
+# host workspace's pins.
 [workspace]
 
+[profile.release]
+opt-level = 3
+lto = "thin"
+debug = 0
+
+[profile.dev]
+opt-level = 1
+debug = 1
+incremental = true
+
 [lib]
-crate-type = ["cdylib", "rlib"]
+name = "silero_vad_loadable_plugin"
+crate-type = ["cdylib"]
 
+# Path-3 hand-rolled plugin: depends ONLY on the skinny
+# `remotemedia-plugin-sdk` umbrella (which re-exports the trait/type
+# surfaces). It does NOT link `remotemedia-core` — that's what lets
+# the SileroVAD + SpeculativeVADCoordinator nodes (and `ort` itself)
+# be removed from the host's core crate without changing this plugin's
+# surface area.
 [dependencies]
-# SileroVADNode lives in `remotemedia-core` (gated by the `silero-vad`
-# feature). Turning the `loadable-export` feature on flips the
-# `#[node]` macro's conditional FFI emission so the inventory contains
-# a `LoadableFactoryEntry` for `SileroVADNode`.
-#
-# `default-features = false` strips the docker, video, multiprocess,
-# and loadable (in-process plugin loader) features we'd otherwise
-# inherit from core's defaults. This plugin only exposes a single
-# in-process audio node; none of those features are reachable
-# through `SileroVADNode`, and dropping them shrinks the cdylib by
-# pulling in only the minimum codepath.
-remotemedia-core = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", rev = "403b2d6c301a72608dc6aea50ab9baaa61dec037", default-features = false, features = ["silero-vad", "loadable-export"] }
-
-# `plugin_export!()` walks the inventory and emits the abi_stable
-# root module the host loads via `dlopen`.
-remotemedia-plugin-sdk = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", rev = "403b2d6c301a72608dc6aea50ab9baaa61dec037" }
+remotemedia-plugin-sdk = { git = "https://github.com/RemoteMedia-SDK/remotemedia-sdk.git", branch = "main" }
 
 # `abi_stable` must be a direct dep so the attribute macros expanded
 # by `plugin_export!()` (`#[sabi_extern_fn]`, `#[export_root_module]`)
 # can resolve `::abi_stable` at the crate root.
 abi_stable = "0.11"
+
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync", "fs", "rt-multi-thread", "macros"] }
+parking_lot = "0.12"
+tracing = "0.1"
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "stream"] }
+
+# Pin `ort` directly in this crate. Matches the host workspace's
+# `=2.0.0-rc.12` pin for behavioural parity. This crate is its own
+# workspace so cargo would not unify against the host either way.
+ort = { version = "=2.0.0-rc.12", features = ["half", "download-binaries"] }
