@@ -731,4 +731,9 @@ impl FfiNodeFactory for SpeculativeVADCoordinatorFactory {
 #[allow(dead_code)]
 fn _audio_samples_used(_: AudioSamples) {}
 
+// Emits the abi_stable root-module symbol the host's dlopen path
+// looks up. Gated behind the `plugin-export` cargo feature
+// (default-on) so consumers that link this crate as an rlib alongside
+// other plugins can disable it to avoid duplicate-symbol collisions.
+#[cfg(feature = "plugin-export")]
 remotemedia_plugin_sdk::plugin_export!(SileroVADNodeFactory, SpeculativeVADCoordinatorFactory);

@@ -21,7 +21,22 @@ incremental = true
 
 [lib]
 name = "silero_vad_loadable_plugin"
-crate-type = ["cdylib"]
+# cdylib: matrix-built `.so` artifact for dlopen-based loading.
+# rlib: lets consumers (e.g. examples/qwen-s2s-avatar-plugins) link
+#       this crate as a normal Rust dep and register its factories
+#       in-process via `wrap_ffi_factory(...)` — no dlopen, no
+#       msgpack roundtrip, identical behavior.
+crate-type = ["cdylib", "rlib"]
+
+# Default features include `plugin-export`, which emits the
+# `abi_stable` root-module symbol that dlopen-based hosts look up.
+# When linking this crate as an rlib alongside other plugins (e.g.
+# examples/qwen-s2s-avatar-plugins), the root-module symbol from each
+# plugin collides at link time — disable this feature in that case via
+# `default-features = false`.
+[features]
+default = ["plugin-export"]
+plugin-export = []
 
 # Path-3 hand-rolled plugin: depends ONLY on the skinny
 # `remotemedia-plugin-sdk` umbrella (which re-exports the trait/type
