@@ -21,7 +21,7 @@
 
 [plugin]
 name        = "silero-vad"
-version     = "0.3.0"
+version     = "0.4.1"
 language    = "rust"
 description = "Voice activity detection (Silero VAD ONNX) + SpeculativeVADCoordinator — standalone Rust cdylib plugin"
 
