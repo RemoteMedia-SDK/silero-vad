@@ -5,7 +5,7 @@
 #
 # A consumer references this from a manifest as either:
 #
-#   "plugins": ["silero-vad@v0.3.0"]
+#   "plugins": ["silero-vad@v0.4.3"]
 #       (canonical-org shorthand → github.com/RemoteMedia-SDK/silero-vad)
 #
 #   "plugins": ["./plugins/libsilero_vad_loadable_plugin.so"]
@@ -21,7 +21,7 @@
 
 [plugin]
 name        = "silero-vad"
-version     = "0.4.2"
+version     = "0.4.3"
 language    = "rust"
 description = "Voice activity detection (Silero VAD ONNX) + SpeculativeVADCoordinator — standalone Rust cdylib plugin"
 
