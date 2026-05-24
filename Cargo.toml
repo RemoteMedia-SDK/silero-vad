@@ -1,6 +1,6 @@
 [package]
 name = "silero-vad-loadable-plugin"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 publish = false
 
@@ -45,7 +45,7 @@ plugin-export = []
 # be removed from the host's core crate without changing this plugin's
 # surface area.
 [dependencies]
-remotemedia-plugin-sdk = "0.4"
+remotemedia-plugin-sdk = "0.5"
 
 # `abi_stable` must be a direct dep so the attribute macros expanded
 # by `plugin_export!()` (`#[sabi_extern_fn]`, `#[export_root_module]`)
