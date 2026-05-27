@@ -64,3 +64,10 @@ reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"
 # `=2.0.0-rc.12` pin for behavioural parity. This crate is its own
 # workspace so cargo would not unify against the host either way.
 ort = { version = "=2.0.0-rc.12", features = ["half", "download-binaries"] }
+
+[patch.crates-io]
+remotemedia-plugin-sdk = { path = "../remotemedia-plugin-sdk/crates/plugin-sdk" }
+remotemedia-traits = { path = "../remotemedia-plugin-sdk/crates/traits" }
+remotemedia-types = { path = "../remotemedia-plugin-sdk/crates/types" }
+loadable-node-abi = { path = "../remotemedia-plugin-sdk/crates/loadable-node-abi" }
+

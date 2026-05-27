@@ -28,6 +28,7 @@ use remotemedia_plugin_sdk::abi_stable::sabi_trait::TD_Opaque;
 use remotemedia_plugin_sdk::abi_stable::std_types::{ROk, RResult, RString};
 use remotemedia_plugin_sdk::adapter::StreamingNodeFfiAdapter;
 use remotemedia_plugin_sdk::traits::streaming::AsyncStreamingNode;
+use remotemedia_plugin_sdk::traits::VoiceActivityDetectorBackend;
 use remotemedia_plugin_sdk::types::{AudioSamples, ControlMessageType, Error, RuntimeData};
 use remotemedia_plugin_sdk::{FfiNodeBox, FfiNodeFactory, FfiNode_TO};
 
@@ -356,6 +357,30 @@ impl AsyncStreamingNode for SileroVADNode {
         callback(RuntimeData::Json(event))?;
         callback(data)?;
         Ok(2)
+    }
+}
+
+impl VoiceActivityDetectorBackend for SileroVADNode {
+    fn reset_buffers(&self, session_id: &str) {
+        if let Ok(mut states) = self.states.try_lock() {
+            states.insert(session_id.to_string(), VADState::default());
+        } else {
+            let mut states = self.states.blocking_lock();
+            states.insert(session_id.to_string(), VADState::default());
+        }
+    }
+
+    fn evaluate_veto(&self, session_id: &str, audio_samples: &[f32]) -> Result<bool, Error> {
+        let handle = tokio::runtime::Handle::try_current()
+            .map_err(|e| Error::Execution(format!("No active tokio runtime thread: {e}")))?;
+        handle.block_on(async {
+            let event = self.vad_event_for(audio_samples.to_vec(), Some(session_id)).await?;
+            let has_speech = event
+                .get("has_speech")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            Ok(has_speech)
+        })
     }
 }
 
