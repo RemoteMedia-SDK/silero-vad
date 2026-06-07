@@ -45,6 +45,8 @@ use ort::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SileroVADConfig {
+    #[serde(alias = "modelPath")]
+    pub model_path: Option<String>,
     pub threshold: f32,
     #[serde(alias = "negThreshold")]
     pub neg_threshold: Option<f32>,
@@ -61,6 +63,7 @@ pub struct SileroVADConfig {
 impl Default for SileroVADConfig {
     fn default() -> Self {
         Self {
+            model_path: None,
             threshold: 0.5,
             neg_threshold: None,
             sampling_rate: 16_000,
@@ -126,7 +129,12 @@ impl SileroVADNode {
             .get_or_try_init(|| async {
                 tracing::info!("Initializing Silero VAD ONNX model");
 
-                let model_path = std::path::Path::new("silero_vad.onnx");
+                let model_path = self
+                    .config
+                    .model_path
+                    .as_deref()
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|| std::path::PathBuf::from("silero_vad.onnx"));
                 if !model_path.exists() {
                     tracing::info!("Downloading Silero VAD model...");
                     let url = "https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx";
@@ -159,7 +167,7 @@ impl SileroVADNode {
                     .map_err(|e| Error::Execution(format!("ort builder: {e}")))?
                     .with_execution_providers([CPUExecutionProvider::default().build()])
                     .map_err(|e| Error::Execution(format!("ort EP: {e}")))?
-                    .commit_from_file(model_path)
+                    .commit_from_file(&model_path)
                     .map_err(|e| Error::Execution(format!("ort load: {e}")))?;
 
                 tracing::info!("Silero VAD model loaded");
@@ -264,8 +272,7 @@ impl SileroVADNode {
                 state.temp_end_samples = 0;
             } else {
                 state.temp_end_samples += mono.len();
-                let silence_ms = (state.temp_end_samples as f32
-                    / self.config.sampling_rate as f32
+                let silence_ms = (state.temp_end_samples as f32 / self.config.sampling_rate as f32
                     * 1000.0) as u32;
                 if silence_ms >= self.config.min_silence_duration_ms {
                     is_speech_end = true;
@@ -374,7 +381,9 @@ impl VoiceActivityDetectorBackend for SileroVADNode {
         let handle = tokio::runtime::Handle::try_current()
             .map_err(|e| Error::Execution(format!("No active tokio runtime thread: {e}")))?;
         handle.block_on(async {
-            let event = self.vad_event_for(audio_samples.to_vec(), Some(session_id)).await?;
+            let event = self
+                .vad_event_for(audio_samples.to_vec(), Some(session_id))
+                .await?;
             let has_speech = event
                 .get("has_speech")
                 .and_then(|v| v.as_bool())
@@ -480,6 +489,7 @@ pub struct SpeculativeVADCoordinator {
 impl SpeculativeVADCoordinator {
     pub fn with_config(config: SpeculativeVADCoordinatorConfig) -> Self {
         let vad_node = SileroVADNode::new(SileroVADConfig {
+            model_path: None,
             threshold: config.vad_threshold,
             neg_threshold: None,
             sampling_rate: config.sample_rate,
@@ -648,13 +658,11 @@ impl AsyncStreamingNode for SpeculativeVADCoordinator {
                 if is_speech_end {
                     if let Some(start_sample) = state.speech_start_sample.take() {
                         let duration_samples = state.current_sample - start_sample;
-                        let duration_ms = (duration_samples as f32
-                            / self.config.sample_rate as f32
+                        let duration_ms = (duration_samples as f32 / self.config.sample_rate as f32
                             * 1000.0) as u32;
 
                         if duration_ms < self.config.min_speech_duration_ms {
-                            let segment_id =
-                                format!("{}_{}", session_id, state.segment_counter);
+                            let segment_id = format!("{}_{}", session_id, state.segment_counter);
                             state.segment_counter += 1;
 
                             pending_outputs.push(RuntimeData::ControlMessage {
