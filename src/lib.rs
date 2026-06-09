@@ -38,6 +38,10 @@ use ort::{
     value::Tensor,
 };
 
+extern "C" {
+    fn silero_android_force_libcxx_streams();
+}
+
 // ---------------------------------------------------------------------------
 // SileroVADNode config
 // ---------------------------------------------------------------------------
@@ -110,6 +114,7 @@ pub struct SileroVADNode {
 
 impl SileroVADNode {
     pub fn new(config: SileroVADConfig) -> Self {
+        unsafe { silero_android_force_libcxx_streams() };
         Self {
             config,
             session: OnceCell::new(),
