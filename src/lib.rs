@@ -90,6 +90,11 @@ struct VADState {
     current_sample: usize,
     /// Silero VAD combined hidden state — `[2, 1, 128]` = 256 floats.
     state: Vec<f32>,
+    /// Trailing samples of the previous window (64 @ 16 kHz, 32 @ 8 kHz).
+    /// Silero v5 expects each window prefixed with this context; without it
+    /// the speech probability is badly degraded (it collapses on quieter
+    /// speech, ending utterances early). Empty until the first window.
+    context: Vec<f32>,
 }
 
 impl Default for VADState {
@@ -99,6 +104,7 @@ impl Default for VADState {
             temp_end_samples: 0,
             current_sample: 0,
             state: vec![0.0; 2 * 128],
+            context: Vec::new(),
         }
     }
 }
@@ -187,9 +193,17 @@ impl SileroVADNode {
         let session_arc = self.get_or_init_session().await?;
         let mut session = session_arc.lock().await;
 
-        let chunk_size = audio.len();
+        // Silero v5 context: prefix the window with the last 64 samples
+        // (32 at 8 kHz) of the previous window, zeros for the first one.
+        let ctx_len: usize = if self.config.sampling_rate == 8_000 { 32 } else { 64 };
+        if state.context.len() != ctx_len {
+            state.context = vec![0.0; ctx_len];
+        }
+        let mut model_input = Vec::with_capacity(ctx_len + audio.len());
+        model_input.extend_from_slice(&state.context);
+        model_input.extend_from_slice(audio);
 
-        let input_tensor = Tensor::from_array(([1, chunk_size], audio.to_vec()))
+        let input_tensor = Tensor::from_array(([1, model_input.len()], model_input))
             .map_err(|e| Error::Execution(format!("ort input tensor: {e}")))?;
         let state_tensor = Tensor::from_array(([2, 1, 128], state.state.clone()))
             .map_err(|e| Error::Execution(format!("ort state tensor: {e}")))?;
@@ -213,6 +227,16 @@ impl SileroVADNode {
             .try_extract_tensor::<f32>()
             .map_err(|e| Error::Execution(format!("ort extract stateN: {e}")))?;
         state.state.copy_from_slice(state_data);
+
+        // Carry the tail of this window into the next call. If the window is
+        // shorter than the context, keep the most recent `ctx_len` samples of
+        // (old context + this window).
+        if audio.len() >= ctx_len {
+            state.context.copy_from_slice(&audio[audio.len() - ctx_len..]);
+        } else {
+            state.context.drain(..audio.len());
+            state.context.extend_from_slice(audio);
+        }
 
         Ok(speech_prob)
     }
